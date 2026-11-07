@@ -107,10 +107,8 @@ select { padding-right: 25px; }
   height: 54px;
   background: center / contain no-repeat url('./assets/head-indicator.webp');
   filter: drop-shadow(0 4px 8px rgba(40, 88, 168, 0.18));
-  transition: left 180ms ease-in-out;
   animation: headBob 1.9s ease-in-out infinite;
 }
-.head-image.head-snap { transition: none; }
 @media (prefers-reduced-motion: reduce) {
   .head-image { transition: none; animation: none; }
   .tape-cell { transition: none; }
