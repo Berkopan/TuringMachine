@@ -1,0 +1,12 @@
+{
+  "name": "turing-machine-workbench",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "A browser-based deterministic single-tape Turing machine simulator",
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check src/core.js && node --check src/presets.js && node --check src/i18n.js && node --check src/app.js"
+  },
+  "engines": { "node": ">=20" }
+}
