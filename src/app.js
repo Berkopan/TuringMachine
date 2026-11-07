@@ -21,7 +21,6 @@ let toastTimer = null;
 let limitReached = false;
 let dragged = null;
 let runtimeViewportStart = null;
-let previousHeadIndex = null;
 
 const t = (key, ...args) => {
   const value = messages[language][key] ?? messages.en[key] ?? key;
@@ -115,7 +114,6 @@ function resetRuntime() {
   stopRunning(); limitReached = false;
   runtime = createRuntime(machine, input);
   runtimeViewportStart = null;
-  previousHeadIndex = null;
   renderRuntime(); renderDiagram(); renderTrace();
 }
 function loadMachine(nextMachine, nextInput = '', source = 'current') {
@@ -174,14 +172,10 @@ function renderRuntime() {
   const cellBox = activeCell.getBoundingClientRect();
   const trackBox = headTrack.getBoundingClientRect();
   const left = cellBox.left + (cellBox.width - headElement.offsetWidth) / 2 - trackBox.left;
-  const snap = previousHeadIndex === null || Math.abs(runtime.head - previousHeadIndex) > 1;
-  // Keep a single head DOM element alive so CSS can animate its x position.
-  // A reset or fresh machine should jump directly to its starting location.
-  if (snap) headElement.classList.add('head-snap');
+  // Match the highlighted cell on every step. A delayed CSS transition makes
+  // the head lag behind during fast runs and when the tape window shifts.
   headElement.style.left = `${Math.round(left)}px`;
   headElement.setAttribute('aria-label', t('headLabel'));
-  if (snap) requestAnimationFrame(() => headElement.classList.remove('head-snap'));
-  previousHeadIndex = runtime.head;
   const status = limitReached ? 'limit' : timer !== null && runtime.status === 'active' ? 'running' : runtime.status;
   const state = machine.states.find(s => s.id === runtime.state);
   $('status-text').textContent = t(status === 'limit' ? 'limitReached' : status);
