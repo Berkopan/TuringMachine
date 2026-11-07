@@ -20,6 +20,8 @@ let timer = null;
 let toastTimer = null;
 let limitReached = false;
 let dragged = null;
+let runtimeViewportStart = null;
+let previousHeadIndex = null;
 
 const t = (key, ...args) => {
   const value = messages[language][key] ?? messages.en[key] ?? key;
@@ -112,6 +114,8 @@ function stopRunning() {
 function resetRuntime() {
   stopRunning(); limitReached = false;
   runtime = createRuntime(machine, input);
+  runtimeViewportStart = null;
+  previousHeadIndex = null;
   renderRuntime(); renderDiagram(); renderTrace();
 }
 function loadMachine(nextMachine, nextInput = '', source = 'current') {
@@ -138,11 +142,23 @@ function editMachine(mutator) {
   setSourceCustom();
   resetRuntime(); renderStateForm(); renderRuleFormChoices(); clearRuleForm(); renderRules(); renderFormal(); storeDraft();
 }
+function getRuntimeWindow(cellCount) {
+  const safeCount = Math.max(7, cellCount % 2 === 0 ? cellCount - 1 : cellCount);
+  const margin = Math.max(2, Math.floor(safeCount / 5));
+  if (runtimeViewportStart === null) runtimeViewportStart = runtime.head - Math.floor(safeCount / 2);
+  const minStart = runtime.head - (safeCount - 1 - margin);
+  const maxStart = runtime.head - margin;
+  runtimeViewportStart = Math.max(minStart, Math.min(maxStart, runtimeViewportStart));
+  return { start: runtimeViewportStart, end: runtimeViewportStart + safeCount - 1, count: safeCount };
+}
+
 function renderRuntime() {
   const viewport = $('tape-viewport');
-  const visible = Math.max(3, Math.min(10, Math.floor(((viewport.clientWidth || 850) - 10) / 106)));
-  const tape = document.createDocumentFragment(), heads = document.createDocumentFragment();
-  for (let index = runtime.head - visible; index <= runtime.head + visible; index++) {
+  const estimatedCellWidth = 62;
+  const rawCount = Math.max(7, Math.min(19, Math.floor((viewport.clientWidth || 850) / estimatedCellWidth)));
+  const { start, end } = getRuntimeWindow(rawCount);
+  const tape = document.createDocumentFragment();
+  for (let index = start; index <= end; index++) {
     const symbol = readTape(runtime, index);
     const cell = document.createElement('div');
     cell.className = `tape-cell${index === runtime.head ? ' active' : ''}${symbol === BLANK ? ' blank' : ''}`;
@@ -150,16 +166,22 @@ function renderRuntime() {
     const number = document.createElement('span'); number.className = 'cell-number'; number.textContent = String(index);
     const value = document.createElement('span'); value.className = 'cell-symbol'; value.textContent = symbol;
     cell.append(number, value); tape.append(cell);
-    const headCell = document.createElement('div'); headCell.className = 'head-cell';
-    if (index === runtime.head) {
-      const arrow = document.createElement('span'); arrow.className = 'head-pointer'; arrow.textContent = '▲';
-      const label = document.createElement('span'); label.className = 'head-label'; label.textContent = t('headLabel');
-      headCell.append(arrow,label);
-    }
-    heads.append(headCell);
   }
   $('tape-track').replaceChildren(tape);
-  $('head-track').replaceChildren(heads);
+  const activeCell = $('tape-track').querySelector('.tape-cell.active');
+  const headTrack = $('head-track');
+  const headElement = $('tape-head');
+  const cellBox = activeCell.getBoundingClientRect();
+  const trackBox = headTrack.getBoundingClientRect();
+  const left = cellBox.left + (cellBox.width - headElement.offsetWidth) / 2 - trackBox.left;
+  const snap = previousHeadIndex === null || Math.abs(runtime.head - previousHeadIndex) > 1;
+  // Keep a single head DOM element alive so CSS can animate its x position.
+  // A reset or fresh machine should jump directly to its starting location.
+  if (snap) headElement.classList.add('head-snap');
+  headElement.style.left = `${Math.round(left)}px`;
+  headElement.setAttribute('aria-label', t('headLabel'));
+  if (snap) requestAnimationFrame(() => headElement.classList.remove('head-snap'));
+  previousHeadIndex = runtime.head;
   const status = limitReached ? 'limit' : timer !== null && runtime.status === 'active' ? 'running' : runtime.status;
   const state = machine.states.find(s => s.id === runtime.state);
   $('status-text').textContent = t(status === 'limit' ? 'limitReached' : status);
