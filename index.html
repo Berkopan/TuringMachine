@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#f7f7f5" />
+  <meta name="description" content="Design and simulate deterministic single-tape Turing machines. Draw states, step through the tape, and export a binary encoding." />
+  <title>Turing Machine — Simulator & Editor</title>
+  <link rel="stylesheet" href="./style.css" />
+  <script type="module" src="./src/app.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <header class="site-header">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">TM</span>
+        <div>
+          <div class="brand-name">Turing Machine</div>
+          <div class="brand-subtitle" data-i18n="subtitle">A single-tape deterministic simulator</div>
+        </div>
+      </div>
+      <nav class="header-actions" aria-label="Site links">
+        <a href="https://github.com/Berkopan/TuringMachine" rel="noopener noreferrer" target="_blank" class="plain-link">GitHub ↗</a>
+        <div class="language-switch" role="group" aria-label="Language">
+          <button type="button" id="language-en" aria-pressed="true">EN</button>
+          <button type="button" id="language-tr" aria-pressed="false">TR</button>
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <section class="toolbar panel" aria-label="Machine selector">
+        <div class="machine-picker">
+          <label for="machine-select" class="field-label" data-i18n="machine">Machine</label>
+          <select id="machine-select" aria-label="Machine"></select>
+        </div>
+        <div class="machine-title-group">
+          <label for="machine-name" class="field-label" data-i18n="machineName">Name</label>
+          <input id="machine-name" type="text" maxlength="120" spellcheck="false" aria-label="Machine name" />
+        </div>
+        <div class="toolbar-actions">
+          <button id="new-machine" type="button" class="button" data-i18n="new">New</button>
+          <button id="save-machine" type="button" class="button" data-i18n="save">Save</button>
+          <button id="import-json" type="button" class="button" data-i18n="import">Import</button>
+          <button id="export-json" type="button" class="button" data-i18n="export">Export</button>
+          <button id="show-encoding" type="button" class="button button-primary" data-i18n="binary">Binary encoding</button>
+          <input id="import-file" type="file" accept=".json,application/json" hidden />
+        </div>
+      </section>
+      <p id="preset-description" class="preset-description"></p>
+
+      <section class="panel tape-panel" aria-labelledby="tape-heading">
+        <div class="section-heading tape-heading">
+          <div>
+            <h2 id="tape-heading" data-i18n="tape">Tape</h2>
+            <p class="section-caption" data-i18n="tapeDescription">The head is shown below the active tape cell. The tape extends infinitely in both directions.</p>
+          </div>
+          <form id="input-form" class="input-group">
+            <label for="input-string" class="field-label" data-i18n="input">Input string</label>
+            <input id="input-string" type="text" autocomplete="off" spellcheck="false" placeholder="1011" />
+            <button class="button" type="submit" data-i18n="load">Load tape</button>
+          </form>
+        </div>
+        <div class="tape-viewport" id="tape-viewport" aria-label="Turing machine tape">
+          <div class="tape-track" id="tape-track"></div>
+          <div class="head-track" id="head-track"></div>
+        </div>
+        <div class="simulation-bar">
+          <div class="run-actions">
+            <button id="run-button" type="button" class="button button-primary"><span id="run-icon" aria-hidden="true">▶</span> <span id="run-label" data-i18n="run">Run</span></button>
+            <button id="step-button" type="button" class="button" data-i18n="step">Step →</button>
+            <button id="back-button" type="button" class="button" data-i18n="back">← Back</button>
+            <button id="reset-button" type="button" class="button" data-i18n="reset">Reset</button>
+          </div>
+          <div class="run-options">
+            <label for="speed" data-i18n="speed">Speed</label>
+            <input id="speed" type="range" min="1" max="10" value="5" aria-label="Speed" />
+            <label for="step-limit" data-i18n="limit">Step limit</label>
+            <input id="step-limit" type="number" min="1" max="1000000" value="10000" />
+          </div>
+        </div>
+        <div class="runtime-bar" aria-live="polite">
+          <div class="runtime-stat"><span data-i18n="status">Status</span> <strong id="status-text" class="status-tag">Ready</strong></div>
+          <div class="runtime-stat"><span data-i18n="currentState">State</span> <strong id="current-state">q0</strong></div>
+          <div class="runtime-stat"><span data-i18n="steps">Steps</span> <strong id="step-count">0</strong></div>
+          <div class="runtime-stat"><span data-i18n="headPosition">Head</span> <strong id="head-position">0</strong></div>
+          <div class="runtime-stat"><span data-i18n="nonBlank">Non-blank</span> <strong id="nonblank-count">0</strong></div>
+        </div>
+      </section>
+
+      <div class="workbench">
+        <section class="panel diagram-panel" aria-labelledby="diagram-heading">
+          <div class="section-heading compact-heading">
+            <div>
+              <h2 id="diagram-heading" data-i18n="diagram">State diagram</h2>
+              <p class="section-caption" data-i18n="diagramHint">Drag states to move them. Double-click an empty area to add a state.</p>
+            </div>
+            <div class="diagram-actions">
+              <button id="add-state" class="button" type="button" data-i18n="addState">+ State</button>
+              <button id="connect-states" class="button" type="button" aria-pressed="false" data-i18n="connect">Connect states</button>
+            </div>
+          </div>
+          <div class="diagram-scroll" id="diagram-scroll">
+            <svg id="diagram" role="img" aria-label="Editable Turing machine state diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 460">
+              <defs>
+                <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4 L0 8 Z" fill="#6b7582" /></marker>
+                <marker id="arrow-active" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4 L0 8 Z" fill="#2054aa" /></marker>
+              </defs>
+              <g id="diagram-edges"></g><g id="diagram-nodes"></g>
+            </svg>
+          </div>
+          <div class="diagram-footer">
+            <span><span class="legend-dot initial-dot"></span> <span data-i18n="legendInitial">Initial</span></span>
+            <span><span class="legend-dot accept-dot"></span> <span data-i18n="legendAccept">Accept</span></span>
+            <span><span class="legend-dot reject-dot"></span> <span data-i18n="legendReject">Reject</span></span>
+            <span id="connect-prompt" class="connect-prompt" aria-live="polite"></span>
+          </div>
+        </section>
+
+        <aside class="editor-column">
+          <section class="panel editor-panel" aria-labelledby="state-heading">
+            <div class="section-heading compact-heading">
+              <h2 id="state-heading" data-i18n="stateEditor">State editor</h2>
+            </div>
+            <form id="state-form" class="editor-form">
+              <div class="form-row">
+                <label for="state-select" data-i18n="selectState">Select state</label>
+                <select id="state-select"></select>
+              </div>
+              <div class="form-grid">
+                <div class="form-row">
+                  <label for="state-name" data-i18n="stateName">State name</label>
+                  <input id="state-name" type="text" maxlength="40" required autocomplete="off" spellcheck="false" />
+                </div>
+                <div class="form-row">
+                  <label for="state-type" data-i18n="stateType">Type</label>
+                  <select id="state-type">
+                    <option value="normal" data-i18n="normal">Normal</option>
+                    <option value="accept" data-i18n="accept">Accept</option>
+                    <option value="reject" data-i18n="reject">Reject</option>
+                  </select>
+                </div>
+              </div>
+              <label class="checkbox-row"><input type="checkbox" id="state-initial" /> <span data-i18n="initialState">Initial state</span></label>
+              <div class="form-actions">
+                <button class="button button-primary" type="submit" data-i18n="apply">Apply changes</button>
+                <button class="button button-danger" id="delete-state" type="button" data-i18n="delete">Delete</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="panel editor-panel" aria-labelledby="transition-heading">
+            <div class="section-heading compact-heading">
+              <h2 id="transition-heading" data-i18n="transitions">Transitions</h2>
+              <span id="rule-count" class="muted-mono"></span>
+            </div>
+            <div class="rules-scroll"><table class="rules-table">
+              <thead><tr><th data-i18n="from">From</th><th data-i18n="read">Read</th><th data-i18n="write">Write</th><th data-i18n="move">Move</th><th data-i18n="to">To</th><th><span class="sr-only">Actions</span></th></tr></thead>
+              <tbody id="rules-body"></tbody>
+            </table></div>
+            <p id="no-rules" class="empty-rules" data-i18n="noRules">No rules yet. Add one below or connect two states on the diagram.</p>
+            <form id="transition-form" class="editor-form transition-form">
+              <div class="form-grid">
+                <div class="form-row">
+                  <label for="transition-from" data-i18n="fromState">From state</label>
+                  <select id="transition-from"></select>
+                </div>
+                <div class="form-row">
+                  <label for="transition-to" data-i18n="toState">To state</label>
+                  <select id="transition-to"></select>
+                </div>
+                <div class="form-row">
+                  <label for="transition-read" data-i18n="readSymbol">Read symbol</label>
+                  <div class="symbol-entry"><input id="transition-read" list="symbol-options" type="text" required autocomplete="off" spellcheck="false" placeholder="0" /><button type="button" data-insert-blank="transition-read" class="symbol-shortcut" title="Blank symbol">□</button></div>
+                </div>
+                <div class="form-row">
+                  <label for="transition-write" data-i18n="writeSymbol">Write symbol</label>
+                  <div class="symbol-entry"><input id="transition-write" list="symbol-options" type="text" required autocomplete="off" spellcheck="false" placeholder="1" /><button type="button" data-insert-blank="transition-write" class="symbol-shortcut" title="Blank symbol">□</button></div>
+                </div>
+              </div>
+              <div class="form-row move-row">
+                <label for="transition-move" data-i18n="moveHead">Move head</label>
+                <select id="transition-move"><option value="L" data-i18n="left">L — Left</option><option value="R" data-i18n="right">R — Right</option><option value="S" data-i18n="stay">S — Stay</option></select>
+              </div>
+              <div class="form-actions">
+                <button id="rule-save" class="button button-primary" type="submit" data-i18n="addRule">+ Add rule</button>
+                <button id="rule-cancel" class="button" type="button" data-i18n="clear">Clear</button>
+              </div>
+              <datalist id="symbol-options"><option value="□"></option><option value="0"></option><option value="1"></option></datalist>
+            </form>
+          </section>
+
+          <section class="panel trace-panel" aria-labelledby="trace-heading">
+            <div class="section-heading compact-heading"><h2 id="trace-heading" data-i18n="trace">Execution trace</h2></div>
+            <ol id="trace-list" class="trace-list"></ol>
+            <p class="trace-empty" id="trace-empty" data-i18n="traceEmpty">Take a step to see which rule executes.</p>
+          </section>
+        </aside>
+      </div>
+
+      <details class="panel formal-panel" id="formal-panel">
+        <summary data-i18n="formal">Formal definition (Q, Σ, Γ, δ)</summary>
+        <pre id="formal-output"></pre>
+      </details>
+    </main>
+
+    <footer class="site-footer"><span data-i18n="footer">Deterministic · Single tape · Runs locally in your browser</span><span>↳ <a href="./docs/encoding.md" target="_blank" rel="noopener noreferrer" data-i18n="encodingSpec">Encoding specification</a></span></footer>
+  </div>
+
+  <dialog id="encoding-dialog" aria-labelledby="encoding-title">
+    <div class="dialog-heading"><div><h2 id="encoding-title" data-i18n="binaryTitle">Binary encoding</h2><p class="section-caption" data-i18n="binaryCaption">Canonical TM01 encoding — use the same format when constructing a universal machine.</p></div><button id="close-encoding" type="button" class="close-button" aria-label="Close">×</button></div>
+    <div class="dialog-content">
+      <div class="code-heading"><label for="machine-bits" data-i18n="machineBits">⟨M⟩ — Machine</label><span id="machine-bit-count"></span></div>
+      <textarea id="machine-bits" class="code-area" rows="4" readonly spellcheck="false"></textarea>
+      <button id="copy-machine" type="button" class="button" data-i18n="copyMachine">Copy ⟨M⟩</button>
+      <div class="code-heading"><label for="pair-bits" data-i18n="pairBits">⟨M,w⟩ — Machine and input</label><span id="pair-bit-count"></span></div>
+      <textarea id="pair-bits" class="code-area" rows="4" readonly spellcheck="false"></textarea>
+      <button id="copy-pair" type="button" class="button" data-i18n="copyPair">Copy ⟨M,w⟩</button>
+      <div class="dialog-divider"></div>
+      <h3 data-i18n="decodeTitle">Decode binary</h3>
+      <p class="section-caption" data-i18n="decodeHelp">Paste TM01 bits to load a machine, or a TM01 pair to load a machine and its input.</p>
+      <textarea id="decode-input" class="code-area" rows="3" spellcheck="false" data-i18n-placeholder="pasteBinary" placeholder="Paste binary digits here..."></textarea>
+      <div class="dialog-buttons"><button id="decode-machine" type="button" class="button" data-i18n="loadMachineBits">Load ⟨M⟩</button><button id="decode-pair" type="button" class="button" data-i18n="loadPairBits">Load ⟨M,w⟩</button></div>
+      <p class="encoding-note" data-i18n="encodingNote">TM01 is a documented project-specific encoding, not a universal standard for A_TM.</p>
+    </div>
+  </dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
